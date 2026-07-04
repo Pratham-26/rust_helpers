@@ -6,10 +6,10 @@ in Rust — no Python loops over rows — and works in both eager and lazy frame
 
 ## Features
 
-- **23 metric expressions** — edit distances, Jaro family, token/n-gram, LCS, and phonetic encoders.
-- **Hybrid scoring** — combine multiple algorithms in a single Rust call (`hybrid_score`), plus pre-built scorers.
-- **DataFrame helpers** — `fuzzy_join`, `deduplicate`, `pairwise_compare` with blocking indexes.
-- **Explainability** — `return_breakdown=True` returns per-metric scores alongside the combined score.
+- **24 metric expressions** — edit distances (Levenshtein, Damerau-Levenshtein, OSA, Hamming), the Jaro family, token/n-gram (Jaccard, Sørensen-Dice, q-grams), LCS, and four phonetic encoders (Soundex, Metaphone, DoubleMetaphone, NYSIIS). See [`ALGORITHMS.md`](ALGORITHMS.md) for the math and normalization behind each one.
+- **Hybrid scoring** — combine multiple algorithms in a single Rust call (`hybrid_score`), plus 4 pre-built scorers (`name_default`, `phonetic_edit`, `token_char`, `prefix_ngram`).
+- **DataFrame helpers** — `fuzzy_join`, `deduplicate`, `pairwise_compare` with blocking indexes (first-chars, char-bag) to avoid O(n²) cross joins.
+- **Explainability** — `return_breakdown=True` returns per-metric scores alongside the combined score, so you can see *why* two strings matched.
 - **Ensembles** — `weighted_avg`, `mean`, `max`, `min`, `median`, `vote`.
 
 All similarity functions return `Float64` in `[0, 1]`. Null in either input → null output.
@@ -19,7 +19,9 @@ All similarity functions return `Float64` in `[0, 1]`. Null in either input → 
 ### Users (no Rust toolchain required)
 
 Prebuilt wheels are published on PyPI for **CPython 3.9–3.13** on
-**Linux x86_64/aarch64**, **Windows x86_64**, and **macOS x86_64/arm64**:
+**Linux x86_64** and **Windows x86_64**. macOS and aarch64-linux wheels are
+planned (see [Platform support](#platform-support)); on those platforms pip
+falls back to a source build.
 
 ```bash
 pip install polars-stringsim
@@ -130,6 +132,21 @@ pf.pairwise_compare(customers, db, left_on="name", right_on="name",
 
 `jaro`, `jaro_winkler`, `levenshtein`, `levenshtein_norm`, `damerau_levenshtein`, `damerau_levenshtein_norm`, `osa`, `hamming`, `hamming_norm`, `token_jaccard`, `token_sorensen_dice`, `trigram_jaccard`, `trigram_sorensen_dice`, `lcs_sim`, `soundex`/`soundex_jw`, `metaphone`/`metaphone_jw`, `double_metaphone`/`double_metaphone_jw`, `nysiis`/`nysiis_jw`.
 
+For what each metric computes and how it's normalized, see [`ALGORITHMS.md`](ALGORITHMS.md).
+
+## Platform support
+
+Prebuilt wheels on PyPI (no Rust toolchain needed):
+
+| Platform | Wheel | Status |
+|---|---|---|
+| Linux x86_64 | `manylinux_2_28_x86_64` | ✅ v0.1.0 |
+| Windows x86_64 | `win_amd64` | ✅ v0.1.0 |
+| macOS x86_64 / arm64 | — | ⏳ planned (sdist fallback works; needs Rust) |
+| Linux aarch64 | — | ⏳ planned (sdist fallback works; needs Rust) |
+
+CPython 3.9–3.13 supported wherever a wheel exists. `pip install polars-stringsim` picks the right wheel automatically; on uncovered platforms it builds from the sdist (requires Rust stable).
+
 ## Tests
 
 ```bash
@@ -166,9 +183,21 @@ python/polars_stringsim/
 └── __init__.py     # public API
 ```
 
-## Roadmap
+## Features & status
 
-- **Done (MVP)**: all algorithms + expressions + combiner.
-- **Done (Phase 2)**: `fuzzy_join`, `deduplicate`, `pairwise_compare`, blocking indexes.
-- **Done (Phase 3)**: `hybrid_score`, per-metric explainability (`return_breakdown`), pre-built hybrid scorers.
-- **Future**: custom combiner registration (user-supplied Rust closures), GPU acceleration, more phonetic encoders (Caverphone, Beider-Morse).
+Everything in the original PRD is implemented and shipped:
+
+- ✅ **24 metric expressions** — edit distances, Jaro family, token/n-gram, LCS, and phonetic encoders. Full reference: [`ALGORITHMS.md`](ALGORITHMS.md).
+- ✅ **Composable ensembles** — `combine()` with `weighted_avg` / `mean` / `max` / `min` / `median` / `vote`.
+- ✅ **Hybrid scoring** — `hybrid_score()` (builds metrics in Rust, no intermediate struct column) + 4 pre-built scorers.
+- ✅ **DataFrame helpers** — `fuzzy_join` (blocked/cross, threshold, `top_k`, `how`), `deduplicate` (union-find clustering), `pairwise_compare`, and blocking indexes.
+- ✅ **Explainability** — `return_breakdown=True` returns a per-metric score breakdown.
+- ✅ **Native Polars plugin** — all scoring in Rust via PyO3; works in eager and lazy frames.
+- ✅ **Prebuilt wheels on PyPI** — `pip install polars-stringsim`, no Rust toolchain required (see [Platform support](#platform-support)).
+
+### Not yet implemented
+
+- ⏳ **Platform wheels**: macOS (x86_64 + arm64) and aarch64-linux — currently sdist-only on those platforms.
+- 🔲 Custom combiner registration (user-supplied Rust closures).
+- 🔲 GPU acceleration.
+- 🔲 More phonetic encoders (Caverphone, Beider-Morse).
