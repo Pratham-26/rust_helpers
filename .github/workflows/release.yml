@@ -25,14 +25,14 @@ concurrency:
 jobs:
 
   # -----------------------------------------------------------------------
-  # linux: x86_64 + aarch64 (cross-compiled in manylinux containers).
+  # linux: x86_64 (manylinux).
+  # TODO(later): add aarch64 cross-compile. The manylinux container can't
+  # auto-discover Python interpreters for cross targets; needs explicit
+  # --interpreter wiring against the container's /opt/python installs.
+  # aarch64-linux users fall back to the sdist (source build) meanwhile.
   # -----------------------------------------------------------------------
   linux:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,13 +41,11 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ matrix.target }}
           args: --release --out dist
-          # manylinux 2_28 ships the cross toolchain for aarch64 inside the
-          # container, so no before-script-linux apt install is needed.
+          manylinux: 2_28
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-linux-${{ matrix.target }}
+          name: wheels-linux-x86_64
           path: dist
 
   # -----------------------------------------------------------------------
