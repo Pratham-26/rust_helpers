@@ -4,6 +4,45 @@ All notable changes to **polars-stringsim** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-07-04
+
+### Fixed
+- **`deduplicate()` on a `LazyFrame` no longer crashes.** It previously raised
+  `AttributeError` in the union-find step because `LazyFrame` has no `.height`.
+  Row count is now resolved via a cheap `select(pl.len())` query; lazy output
+  matches eager.
+- **`fuzzy_join(top_k=...)` now ranks per left *row*, not per distinct key.**
+  Previously two left rows sharing a key value collapsed into one rank window
+  and split each other's top-k slots. Left rows are now tagged with a stable
+  row id before the join and the window partitions by that id.
+- **`fuzzy_join(add_breakdown=True)` now actually emits the breakdown.** The
+  flag was accepted but ignored. It now routes through `combine(..., return_breakdown=True)`
+  and produces a `{ score, scores: { metric_i, ... } }` struct column alongside
+  the flat `score`.
+- **`pairwise_compare()` output now matches its docstring.** It emits per-algorithm
+  Float64 columns (named after the algorithm, with `__N` suffix on duplicates),
+  a `scores` struct bundling them, and `combined` — instead of only `combined`.
+- **`block_char_bag` no longer relies on version-fragile `str.split("")` for
+  empty strings.** Empty/whitespace-only inputs now short-circuit to the
+  empty-string block via an explicit guard.
+- **`qgram_jaccard(_, _, 0)` now returns `0.0`** for non-empty input (no
+  features → no overlap) instead of `1.0`. The expression wrapper already
+  clamped `q` to ≥1, so this only affects direct Rust-API callers. Empty/empty
+  still returns `1.0`.
+
+### Changed
+- **Negative weights are now rejected** by `combine`, `hybrid_score`,
+  `fuzzy_join`, `deduplicate`, and `pairwise_compare` (raises `ValueError`).
+  Negative weights could push combined scores outside `[0,1]`, breaking the
+  similarity invariant. Zero-sum weights are still allowed and fall back to
+  the unweighted mean as before.
+
+### Added
+- Regression tests: `test_deduplicate_lazy_matches_eager`,
+  `test_fuzzy_join_top_k_per_row_with_duplicate_keys`; strengthened
+  `test_fuzzy_join_add_breakdown` and `test_pairwise_compare` to assert the
+  new struct contents.
+
 ## [0.2.0] — 2026-07-04
 
 ### Changed
@@ -79,5 +118,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prebuilt wheels on PyPI for CPython 3.9–3.13 on Linux x86_64 and Windows
   x86_64; sdist for all other platforms.
 
+[0.2.1]: https://github.com/Pratham-26/rust_helpers/releases/tag/v0.2.1
 [0.2.0]: https://github.com/Pratham-26/rust_helpers/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Pratham-26/rust_helpers/releases/tag/v0.1.0

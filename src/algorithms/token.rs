@@ -23,7 +23,19 @@ pub fn token_sorensen_dice(a: &str, b: &str) -> f64 {
 }
 
 /// Jaccard similarity over character q-grams (default q=3 → trigrams).
+///
+/// `q == 0` is degenerate (no grams can be extracted) and returns `0.0` for
+/// any non-empty input — there is no overlap when no features exist. Two empty
+/// strings still score `1.0`. The Polars expression wrapper clamps `q` to ≥1,
+/// so this only matters for direct callers of the pure-Rust API.
 pub fn qgram_jaccard(a: &str, b: &str, q: usize) -> f64 {
+    if q == 0 {
+        // No features can be extracted → no overlap. Empty/empty is still 1.0.
+        if a.is_empty() && b.is_empty() {
+            return 1.0;
+        }
+        return 0.0;
+    }
     let ga = qgrams(a, q);
     let gb = qgrams(b, q);
     jaccard_sets(&ga, &gb)
@@ -117,5 +129,13 @@ mod tests {
     fn empty_strings() {
         assert!((token_jaccard("", "") - 1.0).abs() < 1e-12);
         assert!((trigram_jaccard("", "") - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn qgram_zero_q_is_degenerate() {
+        // q == 0 → no features → 0.0 for any non-empty input, 1.0 for empty/empty.
+        assert!((qgram_jaccard("abc", "abc", 0) - 0.0).abs() < 1e-12);
+        assert!((qgram_jaccard("abc", "", 0) - 0.0).abs() < 1e-12);
+        assert!((qgram_jaccard("", "", 0) - 1.0).abs() < 1e-12);
     }
 }

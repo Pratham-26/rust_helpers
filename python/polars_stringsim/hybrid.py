@@ -10,7 +10,7 @@ from typing import Optional, Sequence, Union
 import polars as pl
 
 from polars_stringsim import _polars_stringsim as _pf
-from polars_stringsim._registry import build_metrics, resolve
+from polars_stringsim._expression import _validate_weights
 
 ColLike = Union[str, "pl.Expr"]
 
@@ -49,11 +49,7 @@ def hybrid_score(
 
     kwargs: dict = {"algorithms": list(algorithms), "method": method}
     if weights is not None:
-        if len(weights) != len(algorithms):
-            raise ValueError(
-                f"weights arity ({len(weights)}) != algorithms arity ({len(algorithms)})"
-            )
-        kwargs["weights"] = list(weights)
+        kwargs["weights"] = _validate_weights(weights, len(algorithms))
     if threshold is not None:
         kwargs["threshold"] = float(threshold)
 

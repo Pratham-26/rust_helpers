@@ -153,6 +153,12 @@ def test_fuzzy_join_add_breakdown() -> None:
         add_breakdown=True,
     )
     assert "score" in out.columns
+    assert "breakdown" in out.columns
+    row = out["breakdown"].to_list()[0]
+    assert "score" in row and "scores" in row
+    # weights=[1.0] over one metric → combined == that metric's score.
+    assert abs(row["score"] - out["score"].to_list()[0]) < 1e-12
+    assert "metric_0" in row["scores"]
 
 
 # ---------- deduplicate ----------
@@ -181,6 +187,35 @@ def test_deduplicate_blocked() -> None:
     assert out.height <= df.height
 
 
+def test_deduplicate_lazy_matches_eager() -> None:
+    # Regression: deduplicate() on a LazyFrame previously crashed in _union_find
+    # because LazyFrame has no .height. It must now match the eager result.
+    df = pl.DataFrame({"name": ["Smith", "Smyth", "Jones", "Smithy", "Brown"]})
+    eager = pf.deduplicate(
+        df, on="name", algorithms=["jaro_winkler"], weights=[1.0],
+        composite_threshold=0.8,
+    )
+    lazy = pf.deduplicate(
+        df.lazy(), on="name", algorithms=["jaro_winkler"], weights=[1.0],
+        composite_threshold=0.8,
+    ).collect()
+    assert eager.height == lazy.height == 3
+
+
+def test_fuzzy_join_top_k_per_row_with_duplicate_keys() -> None:
+    # Regression: top_k previously partitioned the rank window by the *value*
+    # of left_on, so duplicate left keys shared one top-k allowance. With a
+    # row-id partition each left row gets its own full top-k.
+    left = pl.DataFrame({"name": ["Smith", "Smith"]})
+    right = pl.DataFrame({"name": ["Smith", "Smyth", "Smit", "Smithy"]})
+    out = pf.fuzzy_join(
+        left, right, left_on="name", right_on="name",
+        algorithms=["jaro_winkler"], weights=[1.0], top_k=2,
+    )
+    # 2 left rows × top_k=2 = 4 output rows.
+    assert out.height == 4
+
+
 # ---------- pairwise_compare ----------
 
 def test_pairwise_compare() -> None:
@@ -194,8 +229,14 @@ def test_pairwise_compare() -> None:
     )
     assert out.height == 2
     assert "combined" in out.columns
+    assert "scores" in out.columns
     # Identity pair → 1.0
     assert abs(out["combined"].to_list()[0] - 1.0) < 1e-9
+    # Per-algorithm scores struct, named by algorithm.
+    row = out["scores"].to_list()[0]
+    assert "jaro_winkler" in row and "levenshtein_norm" in row
+    assert abs(row["jaro_winkler"] - 1.0) < 1e-9
+    assert abs(row["levenshtein_norm"] - 1.0) < 1e-9
 
 
 # ---------- blocking helpers ----------

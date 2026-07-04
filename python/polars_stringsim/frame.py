@@ -13,8 +13,8 @@ from typing import Optional, Sequence, Union
 
 import polars as pl
 
-from polars_stringsim._registry import build_metrics, resolve
-from polars_stringsim._expression import combine
+from polars_stringsim._registry import build_metrics
+from polars_stringsim._expression import _validate_weights, combine
 from polars_stringsim.hybrid import hybrid_score
 
 ColLike = Union[str, "pl.Expr"]
@@ -41,14 +41,16 @@ def block_char_bag(col: ColLike) -> pl.Expr:
     """Block key = sorted set of characters in the string.
 
     Order-independent: "Smith" and "tmihS" share a block. Coarser than
-    first-chars; use when initials may be reordered.
+    first-chars; use when initials may be reordered. Empty/whitespace-only
+    strings map to the empty-string block; nulls stay null.
     """
     e = col if isinstance(col, pl.Expr) else pl.col(col)
-    # Split to chars, unique, sort, concat.
-    return (
-        e.str.to_lowercase()
-        .str.replace_all(r"\s+", "", literal=False)
-        .str.split("")
+    # Strip whitespace and lowercase, then split into chars, unique, sort, join.
+    # str.split("") on an empty string is version-fragile, so short-circuit
+    # the empty case explicitly via when/then.
+    cleaned = e.str.to_lowercase().str.replace_all(r"\s+", "", literal=False)
+    return pl.when(cleaned.str.len_chars() == 0).then(pl.lit("")).otherwise(
+        cleaned.str.split("")
         .list.unique()
         .list.sort()
         .list.join("")
@@ -107,8 +109,12 @@ def fuzzy_join(
         ``"inner"`` (default) or ``"left"``. ``"left"`` keeps unmatched left
         rows with null right columns.
     add_breakdown:
-        If True, include the per-algorithm score breakdown in a ``scores``
-        struct column alongside the combined ``score``.
+        If True, the ``score`` column is replaced by a ``breakdown`` struct
+        ``{ score: Float64, scores: Struct<metric_0: Float64, ...> }`` giving
+        each algorithm's per-pair score alongside the combined score. Scoring
+        then routes through :func:`polars_stringsim.combine` (which materializes
+        the per-metric columns) rather than the single-call ``hybrid_score``,
+        so it is slightly slower but provides explainability.
 
     Returns
     -------
@@ -121,12 +127,18 @@ def fuzzy_join(
     O(n*m). For large frames always pass ``block``.
     """
     algos = list(algorithms) if algorithms is not None else list(_DEFAULT_ALGOS)
-    w = list(weights) if weights is not None else list(_DEFAULT_WEIGHTS)
-    if len(w) != len(algos):
-        raise ValueError("weights arity must match algorithms arity")
+    if weights is not None:
+        w = _validate_weights(weights, len(algos))
+    else:
+        w = list(_DEFAULT_WEIGHTS)
 
     # Suffix right columns to avoid collisions; rename the join key for clarity.
     right_renamed = right.rename({right_on: "__right_val__"})
+
+    # Tag left rows with a stable row index so top_k can rank per *row* rather
+    # than per distinct key value (the latter collapses duplicate keys into one
+    # window and mis-splits their top-k slots). Dropped before returning.
+    left_tagged = left.with_row_index("__left_row__")
 
     if block is not None:
         if block == "first_chars":
@@ -138,7 +150,7 @@ def fuzzy_join(
         else:
             raise ValueError(f"unknown block strategy {block!r}")
         joined = (
-            left.with_columns(__block__=l_block)
+            left_tagged.with_columns(__block__=l_block)
             .join(
                 right_renamed.with_columns(__block__=r_block),
                 on="__block__",
@@ -149,31 +161,48 @@ def fuzzy_join(
         )
     else:
         # Full cross product, then filter.
-        joined = left.join(
+        joined = left_tagged.join(
             right_renamed, how="cross", suffix="_right"
         )
 
-    scored = joined.with_columns(
-        score=hybrid_score(
-            left_on, "__right_val__",
-            algorithms=algos, weights=w, method=method, threshold=threshold,
+    if add_breakdown:
+        # Explainability path: build per-algorithm metric columns and combine
+        # them with return_breakdown=True, yielding a struct column
+        # { score: Float64, scores: Struct<metric_i: Float64, ...> }.
+        # Uses combine() rather than hybrid_score() so the per-metric scores are
+        # materialized; slightly slower but observable.
+        scored = joined.with_columns(
+            breakdown=combine(
+                build_metrics(algos, left_on, "__right_val__"),
+                weights=w, method=method, return_breakdown=True,
+            )
+        ).with_columns(score=pl.col("breakdown").struct.field("score"))
+    else:
+        scored = joined.with_columns(
+            score=hybrid_score(
+                left_on, "__right_val__",
+                algorithms=algos, weights=w, method=method, threshold=threshold,
+            )
         )
-    )
 
     if threshold is not None:
         scored = scored.filter(pl.col("score") >= threshold)
 
     if top_k is not None:
         # Rank right matches per left row by score descending, keep top_k.
+        # Partition by the row id, not the key value, so duplicate left keys
+        # each get their own full top-k allowance.
         scored = (
             scored.with_columns(
                 __rank=pl.col("score")
                 .rank(method="ordinal", descending=True)
-                .over(left_on)
+                .over("__left_row__")
             )
             .filter(pl.col("__rank") <= top_k)
             .drop("__rank")
         )
+
+    scored = scored.drop("__left_row__")
 
     if how == "left":
         # Re-attach unmatched left rows with null right columns.
@@ -229,12 +258,18 @@ def deduplicate(
     canonical row of that cluster).
     """
     algos = list(algorithms) if algorithms is not None else list(_DEFAULT_ALGOS)
-    w = list(weights) if weights is not None else list(_DEFAULT_WEIGHTS)
-    if len(w) != len(algos):
-        raise ValueError("weights arity must match algorithms arity")
+    if weights is not None:
+        w = _validate_weights(weights, len(algos))
+    else:
+        w = list(_DEFAULT_WEIGHTS)
 
     # Self-join pairs within blocks (or all pairs), keep i<j to avoid duplicates.
-    n = frame.height if isinstance(frame, pl.DataFrame) else None
+    # union-find needs the input row count up front; LazyFrame has no .height,
+    # so resolve it via a cheap count query (single scalar, no full collect).
+    if isinstance(frame, pl.DataFrame):
+        n_rows = frame.height
+    else:
+        n_rows = frame.select(pl.len()).collect().item()
     renamed = frame.rename({on: "__val__"}).with_row_index("__row__")
 
     if block is not None:
@@ -267,7 +302,7 @@ def deduplicate(
     if isinstance(dup_pairs, pl.LazyFrame):
         dup_pairs = dup_pairs.collect()
 
-    clusters = _union_find(dup_pairs, frame.height if n is None else n)
+    clusters = _union_find(dup_pairs, n_rows)
 
     out = frame.with_columns(cluster_id=pl.Series(clusters, dtype=pl.Int64))
     # Keep first row of each cluster as canonical.
@@ -334,9 +369,10 @@ def pairwise_compare(
     full breakdown.
     """
     algos = list(algorithms) if algorithms is not None else list(_DEFAULT_ALGOS)
-    w = list(weights) if weights is not None else list(_DEFAULT_WEIGHTS)
-    if len(w) != len(algos):
-        raise ValueError("weights arity must match algorithms arity")
+    if weights is not None:
+        w = _validate_weights(weights, len(algos))
+    else:
+        w = list(_DEFAULT_WEIGHTS)
 
     right_renamed = right.rename({right_on: "__right_val__"})
     if block is not None:
@@ -361,7 +397,26 @@ def pairwise_compare(
     else:
         joined = left.join(right_renamed, how="cross", suffix="_right")
 
-    metric_exprs = build_metrics(algos, left_on, "__right_val__")
-    return joined.with_columns(
-        combined=combine(metric_exprs, weights=w, method=method)
+    # Per-algorithm metric columns, each named after its algorithm so the
+    # output struct is self-describing: { <algo>: Float64, ..., combined: Float64 }.
+    # Deduplicate names so two invocations of the same algorithm get distinct
+    # columns (e.g. "jaro_winkler", "jaro_winkler__2").
+    names: list[str] = []
+    seen: dict[str, int] = {}
+    aliased_metrics: list[pl.Expr] = []
+    builders = build_metrics(algos, left_on, "__right_val__")
+    for name, expr in zip(algos, builders):
+        if name in seen:
+            seen[name] += 1
+            unique = f"{name}__{seen[name]}"
+        else:
+            seen[name] = 1
+            unique = name
+        names.append(unique)
+        aliased_metrics.append(expr.alias(unique))
+
+    out = joined.with_columns(*aliased_metrics).with_columns(
+        scores=pl.struct([pl.col(n) for n in names]),
+        combined=combine(aliased_metrics, weights=w, method=method),
     ).rename({"__right_val__": f"{right_on}_right"})
+    return out

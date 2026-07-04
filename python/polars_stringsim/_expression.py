@@ -42,6 +42,20 @@ __all__ = [
 ColLike = Union[str, "pl.Expr"]
 
 
+def _validate_weights(weights: Sequence[float], n_metrics: int) -> list[float]:
+    """Arity-check and reject negative weights (which can push the combined
+    score outside [0,1] and break the similarity invariant). Zero-sum weights
+    are allowed (combine() falls back to the unweighted mean in that case)."""
+    if len(weights) != n_metrics:
+        raise ValueError(
+            f"weights arity ({len(weights)}) != metrics arity ({n_metrics})"
+        )
+    neg = [w for w in weights if w < 0]
+    if neg:
+        raise ValueError(f"weights must be non-negative; got {neg}")
+    return list(weights)
+
+
 def _cols(left: ColLike, right: ColLike) -> list[pl.Expr]:
     """Normalize the two inputs to a list of two expressions."""
     return [
@@ -225,11 +239,7 @@ def combine(
 
     kwargs: dict = {"method": method}
     if weights is not None:
-        if len(weights) != len(metrics):
-            raise ValueError(
-                f"weights arity ({len(weights)}) != metrics arity ({len(metrics)})"
-            )
-        kwargs["weights"] = list(weights)
+        kwargs["weights"] = _validate_weights(weights, len(metrics))
     if threshold is not None:
         kwargs["threshold"] = float(threshold)
 
