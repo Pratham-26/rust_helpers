@@ -58,7 +58,7 @@ jobs:
         run: |
           pip install --upgrade pip
           # maturin-action drops wheels in target/wheels/.
-          pip install target/wheels/polars_fuzzy-*.whl
+          pip install target/wheels/polars_stringsim-*.whl
           pip install polars pytest
 
       - name: pytest
