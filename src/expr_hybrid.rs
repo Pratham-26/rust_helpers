@@ -3,12 +3,19 @@
 //! Takes two string columns and a list of algorithm names (+ optional weights
 //! and method) and produces a single combined Float64 score, all in one Rust
 //! call. Equivalent to building N metric expressions in Python and passing
-//! them through ``combine_expr``, but avoids the intermediate struct column.
+//! them through ``combine_expr``, but:
+//!   - avoids the intermediate struct column, and
+//!   - parallelizes the row scan across cores (rayon), so a single hybrid
+//!     operator can use the whole Polars thread pool instead of one core.
+//!
+//! Each thread owns a private stack-allocated scratch buffer (`SmallVec`) for
+//! the per-row metric scores, so the common ≤8-metric ensemble is heap-free.
 
 use polars_arrow::array::{MutablePrimitiveArray, PrimitiveArray};
-use polars_arrow::pushable::Pushable;
 use polars::prelude::*;
 use pyo3_polars::derive::polars_expr;
+use rayon::prelude::*;
+use smallvec::SmallVec;
 
 use crate::algorithms::{edit, jaro, lcs, phonetic, token};
 use crate::combiner::{combine_row, CombineKwargs};
@@ -78,20 +85,36 @@ pub(crate) fn hybrid_score_expr(inputs: &[Series], kwargs: HybridKwargs) -> Pola
 
     let combine_kw = kwargs.to_combine();
     let n = l.len();
-    let mut out = MutablePrimitiveArray::<f64>::with_capacity(n);
-    let mut row: Vec<f64> = Vec::with_capacity(fns.len());
+    let nfn = fns.len();
 
-    for i in 0..n {
-        match (l.get(i), r.get(i)) {
-            (Some(a), Some(b)) => {
-                row.clear();
-                for f in &fns {
-                    row.push(f(a, b));
-                }
-                out.push(Some(combine_row(&row, &combine_kw)));
-            }
-            _ => out.push_null(),
-        }
+    // Parallel row scan on the dedicated stringsim pool. Running inside
+    // `install` lets users tune the thread count (see `thread_pool.rs`)
+    // independently of the Polars engine pool. Each thread owns a contiguous
+    // index range and a private stack-allocated scratch buffer (heap-free for
+    // ≤8 metrics, the common case). Splitting on a row range keeps the two
+    // input columns borrowed immutably across threads — no per-row Arc/clone.
+    let scored: Vec<Option<f64>> = crate::thread_pool::install(move || {
+        (0..n)
+            .into_par_iter()
+            .map_init(
+                || SmallVec::<[f64; 8]>::with_capacity(nfn),
+                |row, i| match (l.get(i), r.get(i)) {
+                    (Some(a), Some(b)) => {
+                        row.clear();
+                        for f in &fns {
+                            row.push(f(a, b));
+                        }
+                        Some(combine_row(row, &combine_kw))
+                    }
+                    _ => None,
+                },
+            )
+            .collect()
+    });
+
+    let mut out = MutablePrimitiveArray::<f64>::with_capacity(n);
+    for v in scored {
+        out.push(v);
     }
 
     let arr: PrimitiveArray<f64> = out.into();

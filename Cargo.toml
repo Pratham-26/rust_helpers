@@ -1,6 +1,6 @@
 [package]
 name = "polars_stringsim"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 publish = false
 
@@ -18,6 +18,8 @@ serde = { version = "1", features = ["derive"] }
 strsim = "0.11"
 polars-arrow = { version = "=0.54.4", default-features = false }
 rphonetic = "3.0"
+rayon = "1.10"
+smallvec = { version = "1.13", features = ["union"] }
 
 [profile.release]
 opt-level = 3

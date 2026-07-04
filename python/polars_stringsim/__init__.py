@@ -51,6 +51,14 @@ try:
 except Exception:  # pragma: no cover
     __version__ = "0.1.0"
 
+try:
+    from polars_stringsim._polars_stringsim import (
+        py_get_num_threads as get_num_threads,
+        py_set_num_threads as set_num_threads,
+    )
+except Exception:  # pragma: no cover
+    pass
+
 __all__ = [
     # Jaro family
     "jaro",
@@ -93,4 +101,7 @@ __all__ = [
     "pairwise_compare",
     "block_first_chars",
     "block_char_bag",
+    # Thread-pool control
+    "set_num_threads",
+    "get_num_threads",
 ]

@@ -2114,7 +2114,7 @@ dependencies = [
 
 [[package]]
 name = "polars_stringsim"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "polars",
  "polars-arrow",
@@ -2122,8 +2122,10 @@ dependencies = [
  "polars-plan",
  "pyo3",
  "pyo3-polars",
+ "rayon",
  "rphonetic",
  "serde",
+ "smallvec",
  "strsim",
 ]
 

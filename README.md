@@ -126,6 +126,23 @@ pf.pairwise_compare(customers, db, left_on="name", right_on="name",
 
 `weighted_avg` (default; weights normalized to sum to 1), `mean`, `max`, `min`, `median`, `vote` (count of metrics ≥ `threshold`, normalized by N).
 
+### Parallelism & thread control
+
+`hybrid_score` parallelizes its row scan across a dedicated worker pool that is
+**independent of the Polars engine pool** (`POLARS_MAX_THREADS`), so you can
+tune them separately. Throughput scales near-linearly with cores (≈7–8× on 16
+threads vs 1).
+
+```python
+import polars_stringsim as pf
+
+pf.get_num_threads()         # default = number of logical cores
+pf.set_num_threads(8)        # use 8 threads for hybrid_score
+pf.set_num_threads(0)        # restore default
+```
+
+Or set the default at process start: `POLARS_STRINGSIM_THREADS=8 python ...`
+
 ## Algorithm name registry
 
 `hybrid_score`, `fuzzy_join`, `deduplicate`, and `pairwise_compare` accept algorithm names:
