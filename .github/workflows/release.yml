@@ -30,6 +30,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         target: [x86_64, aarch64]
     steps:
@@ -42,12 +43,8 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --release --out dist
-          manylinux: 2_28
-          before-script-linux: |
-            if [ "${{ matrix.target }}" = "aarch64" ]; then
-              # aarch64 cross needs the linker provided by gcc-aarch64-linux-gnu
-              apt-get update && apt-get install -y gcc-aarch64-linux-gnu
-            fi
+          # manylinux 2_28 ships the cross toolchain for aarch64 inside the
+          # container, so no before-script-linux apt install is needed.
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-linux-${{ matrix.target }}
