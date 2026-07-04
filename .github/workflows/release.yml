@@ -1,0 +1,148 @@
+name: Release
+
+# Builds prebuilt wheels for every supported platform/Python combo on tag,
+# then publishes them to PyPI via Trusted Publishing (OIDC, no API token).
+# See RELEASE.md for the one-time Trusted Publisher setup on pypi.org.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Build wheels but skip PyPI upload"
+        required: false
+        default: "true"
+
+permissions:
+  contents: write   # for softprops/action-gh-release
+  id-token: write   # for trusted publishing to PyPI
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+
+  # -----------------------------------------------------------------------
+  # linux: x86_64 + aarch64 (cross-compiled in manylinux containers).
+  # -----------------------------------------------------------------------
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist
+          manylinux: 2_28
+          before-script-linux: |
+            if [ "${{ matrix.target }}" = "aarch64" ]; then
+              # aarch64 cross needs the linker provided by gcc-aarch64-linux-gnu
+              apt-get update && apt-get install -y gcc-aarch64-linux-gnu
+            fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.target }}
+          path: dist
+
+  # -----------------------------------------------------------------------
+  # windows: x86_64.
+  # -----------------------------------------------------------------------
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          args: --release --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows
+          path: dist
+
+  # -----------------------------------------------------------------------
+  # macos: x86_64 (macos-13) + arm64 (macos-14).
+  # -----------------------------------------------------------------------
+  macos:
+    strategy:
+      matrix:
+        include:
+          - { os: macos-13, target: x86_64-apple-darwin }
+          - { os: macos-14, target: aarch64-apple-darwin }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          args: --release --target ${{ matrix.target }} --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist
+
+  # -----------------------------------------------------------------------
+  # sdist (source distribution) — fallback for any platform/Python combo we
+  # don't ship a prebuilt wheel for. Will build from source on the user's
+  # machine (requires Rust).
+  # -----------------------------------------------------------------------
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist
+
+  # -----------------------------------------------------------------------
+  # Publish to PyPI via Trusted Publishing, then create a GitHub Release.
+  # -----------------------------------------------------------------------
+  release:
+    needs: [linux, windows, macos, sdist]
+    runs-on: ubuntu-latest
+    environment: release
+    # Skip the upload during manual dry-runs.
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.dry-run != 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # To smoke-test against TestPyPI first, swap the above line for:
+        #   with:
+        #     repository-url: https://test.pypi.org/legacy/
+        # (and register a Trusted Publisher for the project on test.pypi.org)
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

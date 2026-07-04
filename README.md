@@ -14,24 +14,40 @@ in Rust — no Python loops over rows — and works in both eager and lazy frame
 
 All similarity functions return `Float64` in `[0, 1]`. Null in either input → null output.
 
-## Install (dev)
+## Install
+
+### Users (no Rust toolchain required)
+
+Prebuilt wheels are published on PyPI for **CPython 3.9–3.13** on
+**Linux x86_64/aarch64**, **Windows x86_64**, and **macOS x86_64/arm64**:
 
 ```bash
-python -m venv .venv && source .venv/Scripts/activate   # Windows
-# . .venv/bin/activate                                    # macOS/Linux
-pip install polars pytest maturin
-maturin develop --release
+pip install polars-fuzzy
 ```
 
-Or build a wheel and use it anywhere with `uv`:
+That's it — `import polars_fuzzy as pf` works out of the box.
+
+> If a wheel for your platform is missing, pip will fall back to a source
+> build, which **does** require Rust (see below).
+
+### From source / development
+
+For hacking on the plugin itself, or for a platform without a prebuilt wheel:
 
 ```bash
-maturin build --release
-# → target/wheels/polars_fuzzy-0.1.0-cp313-cp313-win_amd64.whl
-uv run --with ./target/wheels/polars_fuzzy-*.whl --with polars python your_script.py
+git clone https://github.com/Pratham-26/rust_helpers.git
+cd rust_helpers
+
+# Iterative dev install (rebuild on every change):
+pip install maturin
+maturin develop --release
+
+# Or: install directly from the repo's source (compiles Rust, needs a toolchain):
+pip install git+https://github.com/Pratham-26/rust_helpers.git
 ```
 
 Requires Rust stable. Pinned to `polars = 0.54.4` / `pyo3-polars = 0.27`.
+See [`RELEASE.md`](RELEASE.md) for how wheels are built and published.
 
 ## Usage
 
