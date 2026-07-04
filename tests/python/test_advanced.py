@@ -4,7 +4,7 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-import polars_fuzzy as pf
+import polars_stringsim as pf
 
 
 # ---------- hybrid_score ----------
@@ -217,6 +217,6 @@ def test_block_char_bag() -> None:
 # ---------- registry ----------
 
 def test_registry_unknown() -> None:
-    from polars_fuzzy._registry import resolve
+    from polars_stringsim._registry import resolve
     with pytest.raises(ValueError):
         resolve("not_real")

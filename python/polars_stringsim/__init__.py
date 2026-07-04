@@ -1,11 +1,11 @@
-"""polars-fuzzy — composable fuzzy string matching for Polars.
+"""polars-stringsim — composable fuzzy string matching for Polars.
 
 All metrics are implemented in Rust and exposed as Polars expressions.
 Combine multiple metrics with :func:`combine` or :func:`hybrid_score` for
 hybrid scoring. Use :func:`fuzzy_join` / :func:`deduplicate` /
 :func:`pairwise_compare` for record-linkage workflows.
 """
-from polars_fuzzy._expression import (
+from polars_stringsim._expression import (
     combine,
     damerau_levenshtein,
     damerau_levenshtein_norm,
@@ -31,14 +31,14 @@ from polars_fuzzy._expression import (
     trigram_jaccard,
     trigram_sorensen_dice,
 )
-from polars_fuzzy.hybrid import (
+from polars_stringsim.hybrid import (
     hybrid_score,
     name_default,
     phonetic_edit,
     prefix_ngram,
     token_char,
 )
-from polars_fuzzy.frame import (
+from polars_stringsim.frame import (
     block_char_bag,
     block_first_chars,
     deduplicate,
@@ -47,7 +47,7 @@ from polars_fuzzy.frame import (
 )
 
 try:
-    from polars_fuzzy._polars_fuzzy import __version__ as __version__
+    from polars_stringsim._polars_stringsim import __version__ as __version__
 except Exception:  # pragma: no cover
     __version__ = "0.1.0"
 

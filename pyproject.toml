@@ -3,7 +3,7 @@ requires = ["maturin>=1.5,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "polars-fuzzy"
+name = "polars-stringsim"
 version = "0.1.0"
 description = "Composable fuzzy string matching for Polars"
 readme = "README.md"
@@ -39,6 +39,6 @@ Documentation = "https://github.com/Pratham-26/rust_helpers#readme"
 Issues = "https://github.com/Pratham-26/rust_helpers/issues"
 
 [tool.maturin]
-module-name = "polars_fuzzy._polars_fuzzy"
+module-name = "polars_stringsim._polars_stringsim"
 python-source = "python"
 features = ["pyo3/extension-module"]

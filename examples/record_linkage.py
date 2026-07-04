@@ -1,4 +1,4 @@
-"""Record-linkage example for polars-fuzzy.
+"""Record-linkage example for polars-stringsim.
 
 Run with:
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import polars as pl
 
-import polars_fuzzy as pf
+import polars_stringsim as pf
 
 
 def banner(title: str) -> None:

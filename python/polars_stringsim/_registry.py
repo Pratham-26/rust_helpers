@@ -10,12 +10,12 @@ from typing import Callable, Sequence, Union
 
 import polars as pl
 
-from polars_fuzzy import _expression as _e
+from polars_stringsim import _expression as _e
 
 ColLike = Union[str, "pl.Expr"]
 
 # Each entry maps a public algorithm name to a builder taking (left, right).
-# Names are stable and match the user-facing API in ``polars_fuzzy``.
+# Names are stable and match the user-facing API in ``polars_stringsim``.
 REGISTRY: dict[str, Callable[[ColLike, ColLike], pl.Expr]] = {
     # Jaro family
     "jaro": _e.jaro,

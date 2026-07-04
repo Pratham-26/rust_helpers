@@ -1,4 +1,4 @@
-# polars-fuzzy
+# polars-stringsim
 
 Composable fuzzy string matching for [Polars](https://pola.rs/), implemented as
 a native Polars plugin (Rust core + Python bindings via PyO3). All scoring runs
@@ -22,10 +22,10 @@ Prebuilt wheels are published on PyPI for **CPython 3.9–3.13** on
 **Linux x86_64/aarch64**, **Windows x86_64**, and **macOS x86_64/arm64**:
 
 ```bash
-pip install polars-fuzzy
+pip install polars-stringsim
 ```
 
-That's it — `import polars_fuzzy as pf` works out of the box.
+That's it — `import polars_stringsim as pf` works out of the box.
 
 > If a wheel for your platform is missing, pip will fall back to a source
 > build, which **does** require Rust (see below).
@@ -53,7 +53,7 @@ See [`RELEASE.md`](RELEASE.md) for how wheels are built and published.
 
 ```python
 import polars as pl
-import polars_fuzzy as pf
+import polars_stringsim as pf
 
 customers = pl.DataFrame({"name": ["Robert Smith", "Catherine Jones", "Jon Smyth"]})
 db = pl.DataFrame({"name": ["Robert Smyth", "Katherine Jones", "William Brown"]})
@@ -141,7 +141,7 @@ Run the example end-to-end with `uv`:
 
 ```bash
 maturin build --release
-WHL=target/wheels/polars_fuzzy-*.whl
+WHL=target/wheels/polars_stringsim-*.whl
 uv run --with "$WHL" --with polars --with pytest python -m pytest tests/python/
 uv run --with "$WHL" --with polars python examples/record_linkage.py
 ```
@@ -158,7 +158,7 @@ src/
 ├── series_util.rs    # str-column readers, Float64 builder, null handling
 └── lib.rs        # #[pymodule]
 
-python/polars_fuzzy/
+python/polars_stringsim/
 ├── _expression.py  # per-metric expr builders + combine()
 ├── _registry.py    # algorithm name → builder map
 ├── hybrid.py       # hybrid_score + pre-built scorers

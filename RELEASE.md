@@ -1,7 +1,7 @@
 # Release process
 
-This document explains how `polars-fuzzy` ships prebuilt wheels to PyPI so
-that users can run `pip install polars-fuzzy` with **no Rust toolchain
+This document explains how `polars-stringsim` ships prebuilt wheels to PyPI so
+that users can run `pip install polars-stringsim` with **no Rust toolchain
 required**.
 
 ## How it works
@@ -24,12 +24,12 @@ Combinations without a matching wheel fall back to the sdist (source build,
 
 ## One-time setup: register the Trusted Publisher
 
-Do this once on PyPI. You must own the project name `polars-fuzzy` on PyPI
+Do this once on PyPI. You must own the project name `polars-stringsim` on PyPI
 (first publish from an account, or reserve via the published-file flow).
 
 1. Go to **https://pypi.org/manage/account/publishing/**.
 2. Under **Add a new publisher → GitHub**, fill in:
-   - **PyPI Project Name:** `polars-fuzzy`
+   - **PyPI Project Name:** `polars-stringsim`
    - **Owner:** `Pratham-26`
    - **Repository:** `rust_helpers`
    - **Workflow name:** `release.yml`
@@ -67,8 +67,8 @@ Verify:
 
 ```bash
 python -m venv /tmp/check && source /tmp/check/bin/activate
-pip install polars-fuzzy
-python -c "import polars_fuzzy as pf; print(pf.__name__)"
+pip install polars-stringsim
+python -c "import polars_stringsim as pf; print(pf.__name__)"
 ```
 
 ---
@@ -87,7 +87,7 @@ python -c "import polars_fuzzy as pf; print(pf.__name__)"
 3. Push a throwaway tag (e.g. `v0.0.0-rc1`).
 4. Install from TestPyPI and sanity-check:
    ```bash
-   pip install -i https://test.pypi.org/simple/ polars-fuzzy
+   pip install -i https://test.pypi.org/simple/ polars-stringsim
    ```
 5. Revert the `repository-url` change before the real release.
 

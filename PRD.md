@@ -1,4 +1,4 @@
-# PRD: Polars Fuzzy Name Matching Extension (`polars-fuzzy`)
+# PRD: Polars Fuzzy Name Matching Extension (`polars-stringsim`)
 
 ## 1. Overview / Problem Statement
 
@@ -8,7 +8,7 @@ algorithms are insufficient for real-world name data; combining multiple
 metrics (e.g., Jaro-Winkler for spelling + Metaphone for phonetics +
 Jaccard for tokens) yields better precision/recall.
 
-`polars-fuzzy` is a Polars plugin (Rust core + Python bindings via PyO3
+`polars-stringsim` is a Polars plugin (Rust core + Python bindings via PyO3
 + `pyo3-polars`) that exposes a comprehensive suite of fuzzy matching
 algorithms as Polars expressions, with first-class support for combining
 multiple metrics into a single hybrid score.
@@ -116,7 +116,7 @@ Rust-native combiners for performance:
 
 ```python
 import polars as pl
-import polars_fuzzy as pf
+import polars_stringsim as pf
 
 # Simple hybrid expression
 df = df.with_columns(

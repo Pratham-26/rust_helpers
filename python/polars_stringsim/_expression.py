@@ -1,4 +1,4 @@
-"""Expression builders for polars-fuzzy.
+"""Expression builders for polars-stringsim.
 
 Each function returns a Polars expression that calls into the Rust plugin.
 The plugin function names match the `#[polars_expr] fn <name>_expr` in Rust.
@@ -10,7 +10,7 @@ from typing import Optional, Sequence, Union
 import polars as pl
 
 # Import the compiled extension module that hosts the plugin symbols.
-from polars_fuzzy import _polars_fuzzy as _pf
+from polars_stringsim import _polars_stringsim as _pf
 
 __all__ = [
     "jaro",

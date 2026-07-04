@@ -9,8 +9,8 @@ from typing import Optional, Sequence, Union
 
 import polars as pl
 
-from polars_fuzzy import _polars_fuzzy as _pf
-from polars_fuzzy._registry import build_metrics, resolve
+from polars_stringsim import _polars_stringsim as _pf
+from polars_stringsim._registry import build_metrics, resolve
 
 ColLike = Union[str, "pl.Expr"]
 
@@ -34,7 +34,7 @@ def hybrid_score(
     algorithms:
         Names from the registry, e.g. ``["jaro_winkler", "soundex"]``.
     weights, method, threshold:
-        See :func:`polars_fuzzy.combine`.
+        See :func:`polars_stringsim.combine`.
 
     Examples
     --------

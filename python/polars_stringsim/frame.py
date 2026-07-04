@@ -13,9 +13,9 @@ from typing import Optional, Sequence, Union
 
 import polars as pl
 
-from polars_fuzzy._registry import build_metrics, resolve
-from polars_fuzzy._expression import combine
-from polars_fuzzy.hybrid import hybrid_score
+from polars_stringsim._registry import build_metrics, resolve
+from polars_stringsim._expression import combine
+from polars_stringsim.hybrid import hybrid_score
 
 ColLike = Union[str, "pl.Expr"]
 
@@ -89,7 +89,7 @@ def fuzzy_join(
     weights:
         Per-algorithm weights (default ``[0.6, 0.4]``).
     method:
-        Combine method (see :func:`polars_fuzzy.combine`).
+        Combine method (see :func:`polars_stringsim.combine`).
     threshold:
         Minimum combined score to keep a pair. ``None`` keeps all.
     top_k:
@@ -215,7 +215,7 @@ def deduplicate(
     on:
         String column to deduplicate.
     algorithms, weights, method:
-        Combined-score configuration (see :func:`polars_fuzzy.combine`).
+        Combined-score configuration (see :func:`polars_stringsim.combine`).
     composite_threshold:
         Combined score at/above which two rows are duplicates.
     block:

@@ -1,4 +1,4 @@
-"""End-to-end tests for polars-fuzzy on Polars DataFrames."""
+"""End-to-end tests for polars-stringsim on Polars DataFrames."""
 from __future__ import annotations
 
 import math
@@ -6,7 +6,7 @@ import math
 import polars as pl
 import pytest
 
-import polars_fuzzy as pf
+import polars_stringsim as pf
 
 
 @pytest.fixture

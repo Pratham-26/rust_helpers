@@ -1,11 +1,11 @@
 [package]
-name = "polars_fuzzy"
+name = "polars_stringsim"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [lib]
-name = "polars_fuzzy"
+name = "polars_stringsim"
 crate-type = ["cdylib"]
 
 [dependencies]
