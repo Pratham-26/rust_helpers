@@ -1,0 +1,24 @@
+[package]
+name = "polars_fuzzy"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "polars_fuzzy"
+crate-type = ["cdylib"]
+
+[dependencies]
+polars = { version = "=0.54.4", default-features = false, features = ["strings", "lazy", "dtype-struct", "temporal"] }
+polars-lazy = { version = "=0.54.4", features = ["python"] }
+polars-plan = { version = "=0.54.4", features = ["python"] }
+pyo3 = { version = "0.28", features = ["extension-module"] }
+pyo3-polars = { version = "0.27", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+strsim = "0.11"
+polars-arrow = { version = "=0.54.4", default-features = false }
+rphonetic = "3.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"

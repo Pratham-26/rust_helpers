@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "polars-fuzzy"
+version = "0.1.0"
+description = "Composable fuzzy string matching for Polars"
+requires-python = ">=3.9"
+dependencies = ["polars>=1.14"]
+
+[tool.maturin]
+module-name = "polars_fuzzy._polars_fuzzy"
+python-source = "python"
+features = ["pyo3/extension-module"]
